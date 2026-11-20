@@ -1,0 +1,513 @@
+
+--[[
+    RELEASE | Basketball Performance
+    UI Version 1.0
+    Water Executor
+]]
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+
+-- Cleanup previous version
+pcall(function()
+    local old = (gethui and gethui() or CoreGui):FindFirstChild("RELEASE_UI")
+    if old then old:Destroy() end
+end)
+
+local Player = Players.LocalPlayer
+local State = {
+    AutoGreen = false,
+    Detection = true,
+    Sensitivity = 85,
+    Offset = 0,
+    Profile = "Jumpshot",
+}
+
+local Presets = {}
+
+local Theme = {
+    Background = Color3.fromRGB(13, 16, 22),
+    Panel = Color3.fromRGB(19, 23, 31),
+    Card = Color3.fromRGB(25, 30, 40),
+    Hover = Color3.fromRGB(34, 41, 53),
+    Green = Color3.fromRGB(91, 235, 145),
+    Text = Color3.fromRGB(238, 242, 248),
+    Muted = Color3.fromRGB(137, 148, 165),
+    Border = Color3.fromRGB(43, 51, 65),
+    Red = Color3.fromRGB(255, 100, 100),
+}
+
+local function Create(class, props, parent)
+    local obj = Instance.new(class)
+    for k, v in pairs(props or {}) do
+        obj[k] = v
+    end
+    obj.Parent = parent
+    return obj
+end
+
+local function Corner(parent, radius)
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, radius or 9)
+    }, parent)
+end
+
+local function Stroke(parent, color, transparency)
+    return Create("UIStroke", {
+        Color = color or Theme.Border,
+        Transparency = transparency or 0,
+        Thickness = 1,
+    }, parent)
+end
+
+local function Label(parent, text, size, color, font)
+    return Create("TextLabel", {
+        BackgroundTransparency = 1,
+        Text = text,
+        TextColor3 = color or Theme.Text,
+        TextSize = size or 13,
+        Font = font or Enum.Font.Gotham,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Center,
+        AutomaticSize = Enum.AutomaticSize.None,
+    }, parent)
+end
+
+local function Button(parent, text, callback)
+    local button = Create("TextButton", {
+        BackgroundColor3 = Theme.Card,
+        Text = text,
+        TextColor3 = Theme.Text,
+        TextSize = 13,
+        Font = Enum.Font.GothamMedium,
+        AutoButtonColor = false,
+    }, parent)
+    Corner(button, 8)
+    button.MouseButton1Click:Connect(callback)
+    button.MouseEnter:Connect(function()
+        TweenService:Create(button, TweenInfo.new(.15), {
+            BackgroundColor3 = Theme.Hover
+        }):Play()
+    end)
+    button.MouseLeave:Connect(function()
+        TweenService:Create(button, TweenInfo.new(.15), {
+            BackgroundColor3 = Theme.Card
+        }):Play()
+    end)
+    return button
+end
+
+local gui = Create("ScreenGui", {
+    Name = "RELEASE_UI",
+    ResetOnSpawn = false,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+}, (gethui and gethui()) or CoreGui)
+
+local main = Create("Frame", {
+    Name = "Main",
+    Size = UDim2.fromOffset(690, 455),
+    Position = UDim2.new(.5, -345, .5, -227),
+    BackgroundColor3 = Theme.Background,
+    BorderSizePixel = 0,
+    ClipsDescendants = true,
+}, gui)
+Corner(main, 13)
+Stroke(main, Theme.Border)
+
+-- Top bar
+local top = Create("Frame", {
+    Size = UDim2.new(1, 0, 0, 57),
+    BackgroundColor3 = Theme.Panel,
+    BorderSizePixel = 0,
+}, main)
+
+local logo = Create("Frame", {
+    Position = UDim2.fromOffset(17, 12),
+    Size = UDim2.fromOffset(33, 33),
+    BackgroundColor3 = Theme.Green,
+}, top)
+Corner(logo, 9)
+
+Label(logo, "R", 20, Theme.Background, Enum.Font.GothamBold).Size =
+    UDim2.fromScale(1, 1)
+
+local title = Label(top, "RELEASE", 16, Theme.Text, Enum.Font.GothamBold)
+title.Position = UDim2.fromOffset(60, 9)
+title.Size = UDim2.fromOffset(150, 20)
+
+local subtitle = Label(top, "BASKETBALL PERFORMANCE", 9, Theme.Muted)
+subtitle.Position = UDim2.fromOffset(61, 29)
+subtitle.Size = UDim2.fromOffset(190, 15)
+
+local version = Label(top, "WATER  /  V1.0.0", 10, Theme.Muted)
+version.Position = UDim2.new(1, -180, 0, 20)
+version.Size = UDim2.fromOffset(115, 18)
+version.TextXAlignment = Enum.TextXAlignment.Right
+
+local minimize = Button(top, "—", function()
+    local hidden = main.Size.Y.Offset == 57
+    main.Size = UDim2.fromOffset(690, hidden and 455 or 57)
+end)
+minimize.Position = UDim2.new(1, -54, 0, 14)
+minimize.Size = UDim2.fromOffset(30, 28)
+
+local close = Button(top, "×", function()
+    gui:Destroy()
+end)
+close.Position = UDim2.new(1, -19, 0, 14)
+close.Size = UDim2.fromOffset(30, 28)
+close.TextColor3 = Theme.Red
+
+-- Dragging
+local dragging, dragStart, startPosition
+top.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPosition = main.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        main.Position = UDim2.new(
+            startPosition.X.Scale,
+            startPosition.X.Offset + delta.X,
+            startPosition.Y.Scale,
+            startPosition.Y.Offset + delta.Y
+        )
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+
+-- Sidebar
+local sidebar = Create("Frame", {
+    Position = UDim2.fromOffset(0, 57),
+    Size = UDim2.new(0, 160, 1, -57),
+    BackgroundColor3 = Theme.Panel,
+    BorderSizePixel = 0,
+}, main)
+
+local sideTitle = Label(sidebar, "WORKSPACE", 10, Theme.Muted, Enum.Font.GothamBold)
+sideTitle.Position = UDim2.fromOffset(17, 19)
+sideTitle.Size = UDim2.fromOffset(120, 18)
+
+local content = Create("Frame", {
+    Position = UDim2.fromOffset(160, 57),
+    Size = UDim2.new(1, -160, 1, -57),
+    BackgroundTransparency = 1,
+}, main)
+
+local pages = {}
+local navButtons = {}
+local activePage = "Dashboard"
+
+local function NewPage(name)
+    local page = Create("ScrollingFrame", {
+        Name = name,
+        Size = UDim2.fromScale(1, 1),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ScrollBarThickness = 3,
+        ScrollBarImageColor3 = Theme.Green,
+        CanvasSize = UDim2.new(),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        Visible = false,
+    }, content)
+
+    Create("UIPadding", {
+        PaddingTop = UDim.new(0, 22),
+        PaddingLeft = UDim.new(0, 22),
+        PaddingRight = UDim.new(0, 22),
+        PaddingBottom = UDim.new(0, 22),
+    }, page)
+
+    Create("UIListLayout", {
+        Padding = UDim.new(0, 13),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }, page)
+
+    pages[name] = page
+    return page
+end
+
+local function SwitchPage(name)
+    activePage = name
+    for pageName, page in pairs(pages) do
+        page.Visible = pageName == name
+    end
+    for pageName, button in pairs(navButtons) do
+        button.BackgroundColor3 =
+            pageName == name and Theme.Hover or Theme.Panel
+        button.TextColor3 =
+            pageName == name and Theme.Green or Theme.Muted
+    end
+end
+
+local function AddNav(name, y)
+    local button = Button(sidebar, "   " .. name, function()
+        SwitchPage(name)
+    end)
+    button.Position = UDim2.fromOffset(10, y)
+    button.Size = UDim2.new(1, -20, 0, 36)
+    button.BackgroundColor3 = Theme.Panel
+    button.TextXAlignment = Enum.TextXAlignment.Left
+    navButtons[name] = button
+end
+
+AddNav("Dashboard", 48)
+AddNav("Detection", 91)
+AddNav("Settings", 134)
+
+local footer = Label(sidebar, "PRIVATE BUILD  •  2026", 9, Theme.Muted)
+footer.Position = UDim2.new(0, 15, 1, -31)
+footer.Size = UDim2.new(1, -25, 0, 15)
+
+-- UI components
+local function Section(parent, heading, description)
+    local card = Create("Frame", {
+        Size = UDim2.new(1, 0, 0, 82),
+        BackgroundColor3 = Theme.Card,
+        BorderSizePixel = 0,
+    }, parent)
+    Corner(card, 10)
+    Stroke(card)
+
+    local h = Label(card, heading, 13, Theme.Text, Enum.Font.GothamBold)
+    h.Position = UDim2.fromOffset(14, 12)
+    h.Size = UDim2.new(1, -28, 0, 20)
+
+    if description then
+        local d = Label(card, description, 10, Theme.Muted)
+        d.Position = UDim2.fromOffset(14, 35)
+        d.Size = UDim2.new(1, -28, 0, 17)
+    end
+    return card
+end
+
+local function Toggle(parent, heading, description, key)
+    local card = Section(parent, heading, description)
+    local switch = Create("TextButton", {
+        Size = UDim2.fromOffset(43, 23),
+        Position = UDim2.new(1, -58, 0, 28),
+        BackgroundColor3 = Theme.Border,
+        Text = "",
+        AutoButtonColor = false,
+    }, card)
+    Corner(switch, 20)
+
+    local dot = Create("Frame", {
+        Size = UDim2.fromOffset(17, 17),
+        Position = UDim2.fromOffset(3, 3),
+        BackgroundColor3 = Color3.fromRGB(235, 238, 242),
+        BorderSizePixel = 0,
+    }, switch)
+    Corner(dot, 20)
+
+    local function Update()
+        local enabled = State[key]
+        TweenService:Create(switch, TweenInfo.new(.18), {
+            BackgroundColor3 = enabled and Theme.Green or Theme.Border
+        }):Play()
+        TweenService:Create(dot, TweenInfo.new(.18), {
+            Position = UDim2.fromOffset(enabled and 23 or 3, 3)
+        }):Play()
+    end
+
+    switch.MouseButton1Click:Connect(function()
+        State[key] = not State[key]
+        Update()
+    end)
+    Update()
+    return card
+end
+
+local function Slider(parent, heading, key, min, max, suffix)
+    local card = Section(parent, heading)
+    card.Size = UDim2.new(1, 0, 0, 96)
+
+    local valueText = Label(card, "", 11, Theme.Green, Enum.Font.GothamBold)
+    valueText.Position = UDim2.new(1, -85, 0, 12)
+    valueText.Size = UDim2.fromOffset(70, 18)
+    valueText.TextXAlignment = Enum.TextXAlignment.Right
+
+    local bar = Create("TextButton", {
+        Position = UDim2.fromOffset(14, 59),
+        Size = UDim2.new(1, -28, 0, 6),
+        BackgroundColor3 = Theme.Border,
+        Text = "",
+        AutoButtonColor = false,
+    }, card)
+    Corner(bar, 8)
+
+    local fill = Create("Frame", {
+        Size = UDim2.new(0, 0, 1, 0),
+        BackgroundColor3 = Theme.Green,
+        BorderSizePixel = 0,
+    }, bar)
+    Corner(fill, 8)
+
+    local knob = Create("Frame", {
+        Size = UDim2.fromOffset(14, 14),
+        AnchorPoint = Vector2.new(.5, .5),
+        Position = UDim2.new(0, 0, .5, 0),
+        BackgroundColor3 = Color3.fromRGB(245, 248, 250),
+        BorderSizePixel = 0,
+    }, bar)
+    Corner(knob, 20)
+
+    local function SetValue(x)
+        local ratio = math.clamp(
+            (x - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1
+        )
+        State[key] = math.floor((min + (max - min) * ratio) * 100) / 100
+        fill.Size = UDim2.new(ratio, 0, 1, 0)
+        knob.Position = UDim2.new(ratio, 0, .5, 0)
+        valueText.Text = tostring(State[key]) .. (suffix or "")
+    end
+
+    bar.MouseButton1Down:Connect(function()
+        SetValue(UserInputService:GetMouseLocation().X)
+        local connection
+        connection = UserInputService.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement then
+                SetValue(input.Position.X)
+            end
+        end)
+        local endConnection
+        endConnection = UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                connection:Disconnect()
+                endConnection:Disconnect()
+            end
+        end)
+    end)
+
+    local ratio = (State[key] - min) / (max - min)
+    fill.Size = UDim2.new(ratio, 0, 1, 0)
+    knob.Position = UDim2.new(ratio, 0, .5, 0)
+    valueText.Text = tostring(State[key]) .. (suffix or "")
+    return card
+end
+
+-- Dashboard page
+local dashboard = NewPage("Dashboard")
+
+local welcome = Section(dashboard, "Welcome back", "Your basketball performance workspace")
+welcome.Size = UDim2.new(1, 0, 0, 80)
+
+local status = Section(dashboard, "SYSTEM STATUS", "Interface loaded successfully")
+status.Size = UDim2.new(1, 0, 0, 83)
+
+local statusValue = Label(status, "READY", 12, Theme.Green, Enum.Font.GothamBold)
+statusValue.Position = UDim2.new(1, -85, 0, 12)
+statusValue.Size = UDim2.fromOffset(70, 20)
+statusValue.TextXAlignment = Enum.TextXAlignment.Right
+
+local autoCard = Toggle(
+    dashboard,
+    "Auto Green",
+    "Enable or disable the automatic release feature",
+    "AutoGreen"
+)
+
+local detectionCard = Toggle(
+    dashboard,
+    "Meter Detection",
+    "Enable visual meter detection",
+    "Detection"
+)
+
+local profileCard = Section(dashboard, "SHOT PROFILE", "Select your current shooting profile")
+local profileButton = Button(profileCard, State.Profile .. "  ▼", function()
+    local choices = {"Jumpshot", "Layup", "Free Throw"}
+    local index = table.find(choices, State.Profile) or 1
+    State.Profile = choices[index % #choices + 1]
+    profileButton.Text = State.Profile .. "  ▼"
+end)
+profileButton.Position = UDim2.new(1, -145, 0, 25)
+profileButton.Size = UDim2.fromOffset(130, 32)
+
+-- Detection page
+local detection = NewPage("Detection")
+
+Section(detection, "DETECTION ENGINE", "Configure the visual meter tracking system")
+Toggle(detection, "Visual Detection", "Allow meter tracking", "Detection")
+Slider(detection, "Detection Sensitivity", "Sensitivity", 1, 100, "%")
+Slider(detection, "Release Offset", "Timing adjustment", -100, 100, " ms")
+
+local info = Section(
+    detection,
+    "DETECTION STATUS",
+    "Detector engine is not connected yet"
+)
+info.Size = UDim2.new(1, 0, 0, 85)
+
+local infoText = Label(info, "WAITING FOR METER SOURCE", 10, Theme.Muted)
+infoText.Position = UDim2.fromOffset(14, 55)
+infoText.Size = UDim2.new(1, -28, 0, 15)
+
+-- Settings page
+local settings = NewPage("Settings")
+
+Section(settings, "INTERFACE", "Customize your workspace")
+local reset = Section(settings, "RESET CONFIGURATION", "Restore default interface settings")
+local resetButton = Button(reset, "Reset", function()
+    State.AutoGreen = false
+    State.Detection = true
+    State.Sensitivity = 85
+    State.Offset = 0
+    State.Profile = "Jumpshot"
+    gui:Destroy()
+    -- Re-run the script to rebuild with default settings.
+end)
+resetButton.Position = UDim2.new(1, -100, 0, 25)
+resetButton.Size = UDim2.fromOffset(85, 32)
+
+local saveCard = Section(settings, "CONFIGURATION PRESETS", "Save settings for this session")
+local saveButton = Button(saveCard, "Save preset", function()
+    Presets["My Preset"] = table.clone(State)
+    saveButton.Text = "Saved ✓"
+    task.delay(1.5, function()
+        if saveButton.Parent then
+            saveButton.Text = "Save preset"
+        end
+    end)
+end)
+saveButton.Position = UDim2.new(1, -120, 0, 25)
+saveButton.Size = UDim2.fromOffset(105, 32)
+
+local loadButton = Button(saveCard, "Load preset", function()
+    if Presets["My Preset"] then
+        for key, value in pairs(Presets["My Preset"]) do
+            State[key] = value
+        end
+        loadButton.Text = "Loaded ✓"
+        task.delay(1.5, function()
+            if loadButton.Parent then
+                loadButton.Text = "Load preset"
+            end
+        end)
+    end
+end)
+loadButton.Position = UDim2.new(1, -120, 0, 62)
+loadButton.Size = UDim2.fromOffset(105, 26)
+
+local about = Section(settings, "ABOUT RELEASE", "Private basketball performance interface")
+about.Size = UDim2.new(1, 0, 0, 82)
+
+local aboutText = Label(about, "RELEASE  •  VERSION 1.0.0", 10, Theme.Green)
+aboutText.Position = UDim2.fromOffset(14, 52)
+aboutText.Size = UDim2.new(1, -28, 0, 15)
+
+SwitchPage("Dashboard")
+
+print("[RELEASE] Interface loaded successfully.")
